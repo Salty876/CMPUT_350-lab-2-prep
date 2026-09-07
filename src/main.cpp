@@ -28,6 +28,10 @@ const float TUBE_SPEED = 3.0f;
 //  Initial Bird Attributes
 //  Initialize the global (constant) variables for it here (radius, position, color)
 
+const sf::Vector2f INITIAL_BIRD_POSITION(100.0, 400.0);
+const float INITIAL_BIRD_SIZE = 15.0f;
+const sf::Color INITIAL_BIRD_COLOR = sf::Color::Yellow; 
+
 // ResourceManager just owns all the resources/assets you'd want in your game.
 // In an engine, you'd probably want to make this more flexible than what we have here
 //  (e.g., by setting up a mapping from resourceName->resource which can be modified at runtime).
@@ -74,6 +78,10 @@ struct BirdState {
         //    appropriate size, color, and initial position.
         //  Note: consider using member initializer list to set the radius via ctor call.
         // ====== ====== ======
+        bird.setRadius(INITIAL_BIRD_SIZE);
+        bird.setPosition(INITIAL_BIRD_POSITION);
+        bird.setFillColor(INITIAL_BIRD_COLOR);
+        bird.setOrigin(sf::Vector2f(INITIAL_BIRD_SIZE, INITIAL_BIRD_SIZE));
     }
 
     // ====== ====== ======
@@ -81,6 +89,7 @@ struct BirdState {
     //  - add a field for the bird's shape.
     // ====== ====== ======
     float velocityY;
+    sf::CircleShape bird;
 };
 
 struct GameState {
@@ -121,6 +130,11 @@ private:
         //    Should be equivalent to: bird.positionY += bird.velocityY;
         //  - Note: bird's x-coordinate will alway be exactly 100.f
         // ====== ====== ======
+        //
+        sf::Vector2f current_position = bird.bird.getPosition();
+        current_position.y += bird.velocityY;
+
+        bird.bird.setPosition(current_position);
 
         // ====== ====== ======
         // TODO: (Q3)
@@ -128,6 +142,11 @@ private:
         //    (i.e., if it's no longer visible). If not, game should reset by clearing
         //    the tubes and restarting the game (setting the bird back to original initial position)
         // ====== ====== ======
+        if (current_position.y < 0.0f || current_position.y > WINDOW_HEIGHT){
+          resetTubes();
+          bird.bird.setPosition(INITIAL_BIRD_POSITION);
+          bird.velocityY = INITIAL_BIRD_VELOCITY_Y;
+        }
     }
 
     void updateTubes() {
@@ -158,12 +177,23 @@ private:
         //  implicitly converted to a boolean value) depending on whether a rectangle intersects
         //  with another
         // ====== ====== ======
+      sf::FloatRect birdBounds = bird.bird.getGlobalBounds();
+
 
         // ====== ====== ======
         // TODO: (Q4)
         //  If bird hits tube, game should reset by resetting the tubes and resetting the bird
         //  to its initial state (i.e., restarting the game)
         // ====== ====== ======
+        //
+        for (const auto& tube : tubes){
+          if (birdBounds.findIntersection(tube.topTube.getGlobalBounds()) || birdBounds.findIntersection(tube.bottomTube.getGlobalBounds())){
+            resetTubes();
+            bird.bird.setPosition(INITIAL_BIRD_POSITION);
+            bird.velocityY = INITIAL_BIRD_VELOCITY_Y;
+            break;
+          }
+        }
     }
 
 public:
@@ -187,6 +217,18 @@ void handleInput(sf::Window& window, GameState& gameState, const ResourceManager
         // TODO: (Q2)
         //  implement jump logic (the key press should be space) and play jump sound fx
         // ====== ====== ======
+        
+        if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>()){
+
+          if (keyPressed->scancode == sf::Keyboard::Scan::Space) {
+            gameState.bird.velocityY = JUMP_SPEED;
+            
+            if (resources.jumpSound){
+              resources.jumpSound->play();
+            }
+
+          }
+        }
     }
 }
 
@@ -201,6 +243,7 @@ void render(sf::RenderWindow& window, const GameState& gameState) {
     // ====== ====== ======
     // TODO: (Q1) Draw bird
     // ====== ====== ======
+    window.draw(gameState.bird.bird);
     window.display();
 }
 
@@ -232,6 +275,16 @@ int main() {
         //            std::cout << "value is " << *intPtr << '\n';
         //            std::cout << "raw address is " << intPtr.get() << '\n';
         // ====== ====== ======
+        
+        
+        resources.jumpSoundBuffer = std::make_unique<sf::SoundBuffer>();
+
+        if (!resources.jumpSoundBuffer->loadFromFile("assets/jump.wav")){
+          std::cerr << "Warning: Could not load jump.wav\n";
+        }
+
+        resources.jumpSound = std::make_unique<sf::Sound>(*resources.jumpSoundBuffer);
+
 
         bool shouldQuit = false;
         // Main game loop
